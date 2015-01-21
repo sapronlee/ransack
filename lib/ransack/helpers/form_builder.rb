@@ -1,4 +1,5 @@
 require 'action_view'
+require 'pry'
 require 'simple_form' if
   (ENV['RANSACK_FORM_BUILDER'] || '').match('SimpleForm')
 
@@ -27,6 +28,7 @@ module Ransack
         options = options || {}
         html_options = html_options || {}
         action = action || 'search'
+        except = options.delete(:except)
         default = options.delete(:default)
         raise ArgumentError, formbuilder_error_message(
           "#{action}_select") unless object.respond_to?(:context)
@@ -39,7 +41,8 @@ module Ransack
             )
           template_grouped_collection_select(collection, options, html_options)
         else
-          collection = collection_for_base(action, bases.first)
+          collection_options = { except: except }
+          collection = collection_for_base(action, bases.first, collection_options)
           object.name ||= default if can_use_default?(
             default, :name, mapped_values(collection)
             )
@@ -218,9 +221,11 @@ module Ransack
         end
       end
 
-      def collection_for_base(action, base)
+      def collection_for_base(action, base, options = {})
+        except = options.delete(:except)
+        except = [except] unless except.is_a?(Array)
         attribute_collection_for_base(
-          object.context.send("#{action}able_attributes", base), base)
+          object.context.send("#{action}able_attributes", base) - except, base)
       end
 
       def attr_from_base_and_column(base, column)
